@@ -66,6 +66,9 @@ function getSubmissions() {
 // ENTER YOUR NEW FORM SUBMISSION ID HERE
   JF.getFormSubmissions("223176459420052", function (responses) {
     // array to store all the submissions: we will use this to create the map
+
+console.log(responses)
+
     const submissions = [];
     // for each responses
     for (var i = 0; i < responses.length; i++) {
@@ -258,6 +261,8 @@ map.on("click", (e) => {
       map.getSource("newPoint").setData(newPoint);
    
       // add a new jotform submission
+
+
       const submission = new Object();
       // name
       submission[3] = newPoint.properties.name;
@@ -284,7 +289,7 @@ map.on("click", (e) => {
           "223176459420052",
           submission,
           function (response) {
-            console.log("submission response", response);
+            console.log("submission response",submission, response);
    
             // assign a timeout to the global timeout variable and reload the map after 3 seconds
             timeout = setTimeout(() => {
@@ -373,4 +378,3 @@ map.on("click", (e) => {
       popup.remove();
     }
   });
-  
