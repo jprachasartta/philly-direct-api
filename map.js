@@ -187,3 +187,190 @@ map.on("mouseleave", "submissions", () => {
   // remove the hoverPopup
   hoverPopup.remove();
 });
+
+// create a popup for click events
+const popup = new mapboxgl.Popup({
+  closeButton: true,
+  closeOnClick: true,
+});
+ 
+// create a global timeout that can be used to refresh the data on the map
+let timeout;
+ 
+// on click of the map add a new point to the map
+map.on("click", (e) => {
+  // create a new geojson object from click
+  const newPoint = {
+    type: "Feature",
+    geometry: {
+      type: "Point",
+      coordinates: [e.lngLat.lng, e.lngLat.lat],
+    },
+    properties: {
+      description: "",
+    },
+  };
+  //   add a new point to the map
+  if (map.getSource("newPoint")) {
+    //if the source already exists, update the source
+    map.getSource("newPoint").setData(newPoint);
+  } else {
+    //if its the first time the user has clicked, add the source and layer
+    map.addSource("newPoint", {
+      type: "geojson",
+      data: newPoint,
+    });
+    // add a new layer to the map
+    map.addLayer({
+      id: "newPoint",
+      type: "circle",
+      source: "newPoint",
+      paint: {
+        "circle-radius": 10,
+        "circle-color": "#f30",
+        "circle-stroke-width": 1,
+        "circle-stroke-color": "#000000",
+      },
+    });
+  }
+
+    //make callback function on submit to update the new point with the description and then submit to jotform
+    const submitForm = (location) => {
+      /**
+       * this function will update the description of the new point and then submit the data to jotform.
+       * Since it is a function it will only trigger when called upon by the submit button.
+       * @param {string} location - the location of the new point
+       * @param {string} description - the description of the new point
+       * @param {object} submission - the submission object
+       */
+   
+      // clear the existing timeout if it is about to trigger
+      clearTimeout(timeout);
+   
+      // get the description from the input
+      const description = document.getElementById("description").value;
+      newPoint.properties.description = description;
+      newPoint.properties.placeName = location;
+      // add name and email to newpoint
+      newPoint.properties.name = document.getElementById("name").value;
+      newPoint.properties.email = document.getElementById("email").value;
+   
+      map.getSource("newPoint").setData(newPoint);
+   
+      // add a new jotform submission
+      const submission = new Object();
+      // name
+      submission[3] = newPoint.properties.name;
+      // email
+      submission[4] = newPoint.properties.email;
+      // place name
+      submission[5] = newPoint.properties.placeName;
+      // latitude
+      submission[6] = newPoint.geometry.coordinates[1];
+      // longitude
+      submission[7] = newPoint.geometry.coordinates[0];
+      // description
+      submission[9] = newPoint.properties.description;
+   
+      if (
+        // if everything has been filled out
+        newPoint.properties.description &&
+        newPoint.properties.name &&
+        newPoint.properties.email
+      ) {
+        // submit the data to jotform and remove the popup
+        popup.remove();
+        JF.createFormSubmission(
+          "223176459420052",
+          submission,
+          function (response) {
+            console.log("submission response", response);
+   
+            // assign a timeout to the global timeout variable and reload the map after 3 seconds
+            timeout = setTimeout(() => {
+              getSubmissions();
+            }, 3000);
+          }
+        );
+      } else {
+        alert("Please fill out all fields");
+        // assign a yellow outline to the popup
+      }
+    };
+   
+    function newSubmission() {
+      // reverse geocode the point using fetch
+      fetch(
+        `https://api.mapbox.com/geocoding/v5/mapbox.places/${e.lngLat.lng},${e.lngLat.lat}.json?access_token=${mapboxgl.accessToken}`
+      )
+        .then((response) => response.json())
+        .then((data) => {
+          const location = data.features[0].place_name
+            .split(",")
+            .slice(0, 2)
+            .join(",");
+   
+          //   add a popup to the new point with a textarea input field
+          const htmlContainer = document.createElement("div");
+          const title = document.createElement("h3");
+          title.textContent = location;
+   
+          // create name and email input fields
+          const nameInput = document.createElement("input");
+          nameInput.setAttribute("type", "text");
+          nameInput.setAttribute("id", "name");
+          nameInput.setAttribute("placeholder", "name");
+          nameInput.addEventListener("input", (e) => {
+            newPoint.properties.name = e.target.value;
+          });
+   
+          const emailInput = document.createElement("input");
+          emailInput.setAttribute("type", "email");
+          emailInput.setAttribute("id", "email");
+          emailInput.setAttribute("placeholder", "email");
+          emailInput.addEventListener("input", (e) => {
+            newPoint.properties.email = e.target.value;
+          });
+   
+          // create description input
+          const textarea = document.createElement("textarea");
+          textarea.id = "description";
+          textarea.placeholder = "description";
+          textarea.style.resize = "none";
+   
+          // create submit button
+          const submitButton = document.createElement("button");
+          submitButton.id = "submit";
+          submitButton.textContent = "Submit";
+   
+          // append all the elements to the html container
+          htmlContainer.appendChild(title);
+          htmlContainer.appendChild(textarea);
+          htmlContainer.appendChild(nameInput);
+          htmlContainer.appendChild(emailInput);
+          htmlContainer.appendChild(submitButton);
+   
+          // add the popup to the map
+          popup
+            .setLngLat([e.lngLat.lng, e.lngLat.lat])
+            .setHTML(htmlContainer.outerHTML)
+            .addTo(map);
+   
+          // get the newly added submit button and call the submitForm function on click
+          const appendedSubmitButton = document.getElementById("submit");
+          appendedSubmitButton.addEventListener("click", function () {
+            submitForm(location);
+          });
+        });
+    }
+    // call the newSubmission function, which triggers the popup and submitForm function
+    newSubmission();
+  });
+   
+  // close the click popup when pressing the escape key
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      popup.remove();
+    }
+  });
+  
